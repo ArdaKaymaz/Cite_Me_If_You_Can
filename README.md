@@ -69,4 +69,56 @@ This section outlines the key components of the ingestion and retrieval pipeline
     - Citation prediction
 
 #### 📈 Result
-By embedding each chunk with SPECTER2, the system builds a semantically rich, citation-aware knowledge base, enhancing both the **retrieval accuracy** and the **trustworthiness** of LLM-generated outputs. 
+By embedding each chunk with SPECTER2, the system builds a semantically rich, citation-aware knowledge base, enhancing both the **retrieval accuracy** and the **trustworthiness** of LLM-generated outputs.
+
+---
+
+### 4️⃣ Chunk-Level Metadata Attachment and Vector Storage with Weaviate
+
+**Purpose**:  
+Ensure that each content chunk is stored along with rich, queryable metadata in a scalable vector database, enabling semantic search and transparent attribution.
+
+---
+
+#### 🧱 Vector Database: `Weaviate`
+
+**Why Weaviate?**
+
+- Fully open-source and Docker-friendly  
+- Schema-based structured metadata support  
+- GraphQL API enables hybrid (vector + metadata) search  
+- Easy integration with external embedding pipelines  
+- Flexible deployment (local or cloud)
+
+---
+
+
+#### 🔧 Data Flow
+
+- **Step 1 – Chunk Generation**  
+  Articles are split into logical, paragraph-level chunks (see [Chunking Strategy](#2️⃣-chunking-strategy-for-scientific-articles)).
+
+- **Step 2 – Embedding**  
+  Each chunk is embedded using the `SPECTER2` model (see [Embedding Strategy](#3️⃣-embedding-strategy--using-specter2)).
+
+- **Step 3 – Metadata Enrichment**  
+  Each chunk is paired with its associated metadata fields.
+
+- **Step 4 – Weaviate Object Construction**  
+  A `DocumentChunk` object is created with:
+  - `properties`: metadata + chunk text  
+  - `vector`: embedding representation
+
+- **Step 5 – Vector Insertion**  
+  The chunk object is written to Weaviate using the Python client or batch API.
+
+---
+
+#### ✅ Benefits
+
+- Enables **citation-aware, metadata-rich retrieval**
+- Improves **traceability** and **LLM interpretability**
+- Supports **advanced filtering** (by section, year, journal, etc.)
+- Scales for **millions of documents and chunks**
+
+---
