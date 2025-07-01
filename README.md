@@ -21,3 +21,18 @@
    
    Outcome:  
    This scheduled system ensures systematic daily ingestion of genuinely new content while preventing redundant processing of near-duplicate journal articles.
+
+2. Chunking Strategy for Scientific Articles
+   Chunking is a critical and sensitive step in ensuring that user prompts retrieve relevant content, return accurate information, and ultimately meet the user’s expectations. To perform effective chunking, it is essential to understand the structure and nature of the source material and apply a strategy tailored to it.
+
+   Scientific articles typically follow a standardized structure consisting of sections such as Abstract, Introduction, Materials and Methods, Results, Discussion, and Conclusion. Each of these sections carries its own semantic, conceptual, and contextual integrity. Therefore, the chunking process should treat each section as a separate unit when parsing the content.
+
+   Within these sections, paragraphs represent the smallest coherent units of meaning and logical flow. In scientific writing, paragraphs are carefully constructed to convey a single idea or finding, making them ideal candidates for chunk boundaries.
+
+   As such, the proposed chunking strategy is to:
+
+      1. First, segment the article by its main sections (e.g., Introduction, Results).
+
+      2. Then, split each section into individual paragraphs, treating each paragraph as a distinct chunk.
+
+   This approach preserves both the structural and semantic coherence of the content, enabling better embedding representation, improved retrieval accuracy, and more contextually grounded responses from the generative AI system.
