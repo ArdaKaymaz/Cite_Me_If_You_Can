@@ -2,46 +2,71 @@
  Will AI replace scientists?
  Maybe will, maybe won't, but I'm sure it is helpful for scientists.
 
-## Ingestion Pipeline Architecture Design
-1. Scheduled Daily New File Detection and Duplicate Filtering System  
-   Scheduled Execution:  
-   A cronjob or scheduler runs a detection script at the same time every day to automatically scan the secure upload folder for new journal files.  
-   
-   New File Detection:  
-   The system compares the list of files currently in the upload directory against a record of previously processed files to identify newly added documents.  
-   
-   Duplicate Detection Using Cosine Similarity:  
-   For each newly detected file, the system extracts its textual content and generates an embedding vector. It then compares this vector to embeddings of all previously ingested documents using cosine similarity.  
-   
-   Duplicate Filtering Threshold:  
-   If the cosine similarity between the new document and any existing document exceeds 99%, the new file is considered a near-duplicate and is excluded from further ingestion processing.  
-   
-   Pipeline Continuation:  
-   Only files that are confirmed as sufficiently unique (below the similarity threshold) proceed to downstream ingestion steps such as chunking, indexing, and embedding storage.  
-   
-   Outcome:  
-   This scheduled system ensures systematic daily ingestion of genuinely new content while preventing redundant processing of near-duplicate journal articles.
+## 📚 System Architecture and Design Decisions
 
-2. Chunking Strategy for Scientific Articles    
-   Chunking is a critical and sensitive step in ensuring that user prompts retrieve relevant content, return accurate information, and ultimately meet the user’s expectations. To perform effective chunking, it is essential to understand the structure and nature of the source material and apply a strategy tailored to it.
+This section outlines the key components of the ingestion and retrieval pipeline used in the *Cite Me If You Can* project. Each part of the system is carefully selected and designed to ensure high-quality, citation-aware scientific document processing.
 
-   Scientific articles typically follow a standardized structure consisting of sections such as Abstract, Introduction, Materials and Methods, Results, Discussion, and Conclusion. Each of these sections carries its own semantic, conceptual, and contextual integrity. Therefore, the chunking process should treat each section as a separate unit when parsing the content.
+---
 
-   Within these sections, paragraphs represent the smallest coherent units of meaning and logical flow. In scientific writing, paragraphs are carefully constructed to convey a single idea or finding, making them ideal candidates for chunk boundaries.
+### 1️⃣ Scheduled Daily New File Detection and Duplicate Filtering
 
-   As such, the proposed chunking strategy is to:
+**Purpose**: Systematically identify and ingest only truly new journal files while filtering out near-duplicates to maintain a clean, efficient vector store.
 
-      1. First, segment the article by its main sections (e.g., Introduction, Results).
+#### 🔁 Process Flow
+- **Scheduled Execution**:  
+  A daily cronjob (or equivalent scheduler) automatically triggers a script to scan the secure upload directory for new files.  
+  _**Why:** Ensures hands-free, consistent ingestion._
 
-      2. Then, split each section into individual paragraphs, treating each paragraph as a distinct chunk.
+- **New File Detection**:  
+  Compares current files against previously processed records to find newly added documents.  
+  _**Why:** Prevents redundant processing of existing documents._
 
-   This approach preserves both the structural and semantic coherence of the content, enabling better embedding representation, improved retrieval accuracy, and more contextually grounded responses from the generative AI system.
+- **Duplicate Detection via Cosine Similarity**:  
+  Embeddings of new documents are compared with previously ingested ones using cosine similarity.  
+  _**Why:** Captures semantic duplicates even if text is slightly altered._
 
-3. Embedding Strategy – Using SPECTER2    
-   The selected embedding model for this system is SPECTER2, a transformer-based model specifically trained on scientific literature.  
-   
-   Given that the overall use case involves processing scientific articles and generating answers based on their content, it is crucial to use an embedding model that understands the structure, language, and flow of academic writing. SPECTER2 excels in this domain, as it has been trained not only on scientific text but also on citation relationships, allowing it to capture the semantic relevance between documents in a way that aligns with scholarly communication.    
-   
-   Compared to general-purpose embedding models, SPECTER2 consistently outperforms alternatives in tasks such as scientific paper retrieval, similarity search, and citation prediction. Its focus on citation-informed representations makes it particularly well-suited for grounding generative AI outputs in credible, research-backed sources.   
-   
-   By leveraging SPECTER2, the system ensures that each chunk of scientific content is embedded with a deep understanding of its academic context, ultimately enabling more accurate and trustworthy retrieval and response generation.
+- **Duplicate Filtering Threshold**:  
+  Files with >**99%** cosine similarity are excluded from further processing.  
+  _**Why:** Avoids cluttering the vector store with near-identical content._
+
+- **Pipeline Continuation**:  
+  Only sufficiently unique files proceed to chunking, embedding, and indexing.  
+  _**Why:** Preserves relevance and diversity in the database._
+
+---
+
+### 2️⃣ Chunking Strategy for Scientific Articles
+
+**Purpose**: Enable accurate retrieval and better embedding by maintaining logical and semantic coherence in the content chunks.
+
+#### 🧠 Strategy
+- **Section-Based Segmentation**:  
+  Articles are first split into major sections (e.g., Abstract, Introduction, Methods).  
+  _**Why:** Scientific papers follow a well-defined structure, and each section represents a unique conceptual unit._
+
+- **Paragraph-Level Chunking**:  
+  Within each section, content is divided into individual paragraphs.  
+  _**Why:** Academic paragraphs typically express a single idea or finding — making them ideal minimal retrieval units._
+
+#### ✅ Benefits
+- Preserves academic structure and intent
+- Boosts embedding relevance
+- Improves semantic search and generative grounding
+
+---
+
+### 3️⃣ Embedding Strategy – Using SPECTER2
+
+**Purpose**: Represent each content chunk as a dense vector that captures scientific meaning and citation context.
+
+#### 🤖 Model: `SPECTER2` (by AllenAI)
+- **Why SPECTER2?**
+  - Specifically trained on scientific literature
+  - Incorporates **citation relationships** into embeddings
+  - Outperforms general-purpose models in tasks like:
+    - Scientific paper retrieval
+    - Semantic similarity search
+    - Citation prediction
+
+#### 📈 Result
+By embedding each chunk with SPECTER2, the system builds a semantically rich, citation-aware knowledge base, enhancing both the **retrieval accuracy** and the **trustworthiness** of LLM-generated outputs. 
