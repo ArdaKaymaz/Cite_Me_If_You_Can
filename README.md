@@ -36,3 +36,12 @@
       2. Then, split each section into individual paragraphs, treating each paragraph as a distinct chunk.
 
    This approach preserves both the structural and semantic coherence of the content, enabling better embedding representation, improved retrieval accuracy, and more contextually grounded responses from the generative AI system.
+
+3. Embedding Strategy – Using SPECTER2    
+   The selected embedding model for this system is SPECTER2, a transformer-based model specifically trained on scientific literature.  
+   
+   Given that the overall use case involves processing scientific articles and generating answers based on their content, it is crucial to use an embedding model that understands the structure, language, and flow of academic writing. SPECTER2 excels in this domain, as it has been trained not only on scientific text but also on citation relationships, allowing it to capture the semantic relevance between documents in a way that aligns with scholarly communication.    
+   
+   Compared to general-purpose embedding models, SPECTER2 consistently outperforms alternatives in tasks such as scientific paper retrieval, similarity search, and citation prediction. Its focus on citation-informed representations makes it particularly well-suited for grounding generative AI outputs in credible, research-backed sources.   
+   
+   By leveraging SPECTER2, the system ensures that each chunk of scientific content is embedded with a deep understanding of its academic context, ultimately enabling more accurate and trustworthy retrieval and response generation.
