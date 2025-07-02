@@ -82,7 +82,7 @@ def answer_question(request: AnswerRequest):
 
     query_embedding = embed_text(request.query)
 
-    # En iyi k chunk'ı bul
+    # Find the best k chunks
     scored_results = []
     for item in vector_store:
         score = cosine_similarity(query_embedding, item["embedding"])
@@ -90,7 +90,7 @@ def answer_question(request: AnswerRequest):
             scored_results.append({**item, "score": score})
     top_k = sorted(scored_results, key=lambda x: x["score"], reverse=True)[:request.k]
 
-    # Prompt'ı oluştur
+    # Generate the prompt
     excerpts = "\n\n".join(
         [f"{i+1}. {chunk['text']}" for i, chunk in enumerate(top_k)]
     )
@@ -106,10 +106,10 @@ EXCERPTS:
 ANSWER:
 """.strip()
 
-    # Cevap oluştur
+    # Generate answer
     answer = generate_answer(prompt)
 
-    # Kaynak chunk'ları yanıtla birlikte döndür
+    # Return the best k chunks with answer
     sources = [
         SearchResult(
             id=item["id"],
