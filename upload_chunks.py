@@ -1,11 +1,11 @@
 import json
 import requests
 
-# JSON dosyasını oku
+# Read JSON file
 with open("Sample_chunks.json", "r", encoding="utf-8") as f:
     chunks_data = json.load(f)
 
-# API’ya uygun formata dönüştür
+# Convert into API suitable format
 formatted_chunks = []
 for chunk in chunks_data:
     formatted_chunks.append({
@@ -19,10 +19,10 @@ for chunk in chunks_data:
 
 payload = {"chunks": formatted_chunks}
 
-# API adresin (gerekirse host/port ayarına göre düzenle)
+# API address
 API_URL = "http://127.0.0.1:8000/api/upload"
 
-# İsteği gönder
+# Send request
 response = requests.put(API_URL, json=payload)
 
 print("Status code:", response.status_code)
