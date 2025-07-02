@@ -36,3 +36,26 @@ class SearchResult(BaseModel):
     journal: str
     publish_year: int
     attributes: Optional[Dict[str, str]]
+
+
+# Upload endpoint
+@app.put("/api/upload")
+def upload_chunks(payload: UploadRequest):
+    for chunk in payload.chunks:
+        embedding = embed_text(chunk.text)
+        vector_store.append({
+            "id": str(uuid.uuid4()),
+            "text": chunk.text,
+            "embedding": embedding,
+            "source_doc_id": chunk.source_doc_id,
+            "section_heading": chunk.section_heading,
+            "journal": chunk.journal,
+            "publish_year": chunk.publish_year,
+            "usage_count": 0,
+            "attributes": chunk.attributes
+        })
+    return {
+        "message": "Chunks uploaded successfully",
+        "count": len(payload.chunks),
+        "status": "accepted"
+    }
