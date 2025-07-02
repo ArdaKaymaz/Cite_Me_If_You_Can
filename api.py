@@ -1,50 +1,17 @@
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel, Field
-from typing import List, Optional, Dict
-import uuid
-import numpy as np
-from embedding import embed_text  # SPECTER2 function from embedding.py
+from uuid import uuid4
+from embedding import embed_text
+from models import Chunk, UploadRequest, SimilaritySearchRequest, SearchResult
+from vector_utils import vector_store, cosine_similarity
 
 app = FastAPI()
 
-# Temporary vector db
-vector_store = []
-
-# Data models
-class Chunk(BaseModel):
-    text: str
-    source_doc_id: str
-    section_heading: str
-    journal: str
-    publish_year: int
-    attributes: Optional[Dict[str, str]] = Field(default_factory=dict)
-
-class UploadRequest(BaseModel):
-    chunks: List[Chunk]
-
-class SimilaritySearchRequest(BaseModel):
-    query: str
-    k: int = 10
-    min_score: float = 0.25
-
-class SearchResult(BaseModel):
-    id: str
-    text: str
-    score: float
-    source_doc_id: str
-    section_heading: str
-    journal: str
-    publish_year: int
-    attributes: Optional[Dict[str, str]]
-
-
-# Upload endpoint
 @app.put("/api/upload")
 def upload_chunks(payload: UploadRequest):
     for chunk in payload.chunks:
         embedding = embed_text(chunk.text)
         vector_store.append({
-            "id": str(uuid.uuid4()),
+            "id": str(uuid4()),
             "text": chunk.text,
             "embedding": embedding,
             "source_doc_id": chunk.source_doc_id,
@@ -60,26 +27,14 @@ def upload_chunks(payload: UploadRequest):
         "status": "accepted"
     }
 
-
-# Cosine similarity calculator
-def cosine_similarity(vec1, vec2):
-    vec1 = np.array(vec1)
-    vec2 = np.array(vec2)
-    norm1 = np.linalg.norm(vec1)
-    norm2 = np.linalg.norm(vec2)
-    if norm1 == 0.0 or norm2 == 0.0:
-        return 0.0
-    return float(np.dot(vec1, vec2) / (norm1 * norm2))
-
-# Similarity search endpoint
-@app.post("/api/similarity_search", response_model=List[SearchResult])
+@app.post("/api/similarity_search", response_model=list[SearchResult])
 def similarity_search(request: SimilaritySearchRequest):
     if not vector_store:
         raise HTTPException(status_code=400, detail="Vector store is empty. Upload chunks first.")
 
     query_embedding = embed_text(request.query)
-
     scored_results = []
+
     for item in vector_store:
         score = cosine_similarity(query_embedding, item["embedding"])
         if score >= request.min_score:
@@ -89,29 +44,27 @@ def similarity_search(request: SimilaritySearchRequest):
 
     return [
         SearchResult(
-            id=item["id"],
-            text=item["text"],
-            score=item["score"],
-            source_doc_id=item["source_doc_id"],
-            section_heading=item["section_heading"],
-            journal=item["journal"],
-            publish_year=item["publish_year"],
-            attributes=item.get("attributes", {})
-        )
-        for item in top_k
+            id=chunk["id"],
+            text=chunk["text"],
+            score=chunk["score"],
+            source_doc_id=chunk["source_doc_id"],
+            section_heading=chunk["section_heading"],
+            journal=chunk["journal"],
+            publish_year=chunk["publish_year"],
+            attributes=chunk.get("attributes", {})
+        ) for chunk in top_k
     ]
 
-
-# GET /api/{journal_id} → Returns metadata and all chunk content associated with a specific journal document
 @app.get("/api/{journal_id}")
 def get_journal_chunks(journal_id: str):
-    matching_chunks = [chunk for chunk in vector_store if chunk["source_doc_id"] == journal_id]
-
-    if not matching_chunks:
+    matching = [c for c in vector_store if c["source_doc_id"] == journal_id]
+    if not matching:
         raise HTTPException(status_code=404, detail=f"No chunks found for journal_id: {journal_id}")
-
+    
     return {
         "source_doc_id": journal_id,
-        "chunk_count": len(matching_chunks),
-        "chunks": matching_chunks
+        "chunk_count": len(matching),
+        "chunks": [
+            {k: v for k, v in chunk.items() if k != "embedding"} for chunk in matching
+        ]
     }
