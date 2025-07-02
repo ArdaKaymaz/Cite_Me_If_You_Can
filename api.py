@@ -100,3 +100,18 @@ def similarity_search(request: SimilaritySearchRequest):
         )
         for item in top_k
     ]
+
+
+# GET /api/{journal_id} → Returns metadata and all chunk content associated with a specific journal document
+@app.get("/api/{journal_id}")
+def get_journal_chunks(journal_id: str):
+    matching_chunks = [chunk for chunk in vector_store if chunk["source_doc_id"] == journal_id]
+
+    if not matching_chunks:
+        raise HTTPException(status_code=404, detail=f"No chunks found for journal_id: {journal_id}")
+
+    return {
+        "source_doc_id": journal_id,
+        "chunk_count": len(matching_chunks),
+        "chunks": matching_chunks
+    }
