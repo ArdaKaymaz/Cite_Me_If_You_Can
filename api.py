@@ -59,3 +59,44 @@ def upload_chunks(payload: UploadRequest):
         "count": len(payload.chunks),
         "status": "accepted"
     }
+
+
+# Cosine similarity calculator
+def cosine_similarity(vec1, vec2):
+    vec1 = np.array(vec1)
+    vec2 = np.array(vec2)
+    norm1 = np.linalg.norm(vec1)
+    norm2 = np.linalg.norm(vec2)
+    if norm1 == 0.0 or norm2 == 0.0:
+        return 0.0
+    return float(np.dot(vec1, vec2) / (norm1 * norm2))
+
+# Similarity search endpoint
+@app.post("/api/similarity_search", response_model=List[SearchResult])
+def similarity_search(request: SimilaritySearchRequest):
+    if not vector_store:
+        raise HTTPException(status_code=400, detail="Vector store is empty. Upload chunks first.")
+
+    query_embedding = embed_text(request.query)
+
+    scored_results = []
+    for item in vector_store:
+        score = cosine_similarity(query_embedding, item["embedding"])
+        if score >= request.min_score:
+            scored_results.append({**item, "score": score})
+
+    top_k = sorted(scored_results, key=lambda x: x["score"], reverse=True)[:request.k]
+
+    return [
+        SearchResult(
+            id=item["id"],
+            text=item["text"],
+            score=item["score"],
+            source_doc_id=item["source_doc_id"],
+            section_heading=item["section_heading"],
+            journal=item["journal"],
+            publish_year=item["publish_year"],
+            attributes=item.get("attributes", {})
+        )
+        for item in top_k
+    ]
