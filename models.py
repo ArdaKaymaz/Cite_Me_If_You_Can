@@ -26,3 +26,12 @@ class SearchResult(BaseModel):
     journal: str
     publish_year: int
     attributes: Dict[str, str]
+
+class AnswerRequest(BaseModel):
+    query: str
+    k: int = 5
+    min_score: float = 0.25
+
+class AnswerResponse(BaseModel):
+    answer: str
+    sources: List[SearchResult]
