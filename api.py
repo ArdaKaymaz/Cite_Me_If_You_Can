@@ -4,6 +4,9 @@ from embedding import embed_text
 from models import Chunk, UploadRequest, SimilaritySearchRequest, SearchResult
 from vector_utils import vector_store, cosine_similarity
 
+from llm import generate_answer
+from models import AnswerRequest, AnswerResponse
+
 app = FastAPI()
 
 @app.put("/api/upload")
@@ -68,3 +71,57 @@ def get_journal_chunks(journal_id: str):
             {k: v for k, v in chunk.items() if k != "embedding"} for chunk in matching
         ]
     }
+
+
+### LLM Integration ###
+
+@app.post("/api/answer", response_model=AnswerResponse)
+def answer_question(request: AnswerRequest):
+    if not vector_store:
+        raise HTTPException(status_code=400, detail="Vector store is empty. Upload chunks first.")
+
+    query_embedding = embed_text(request.query)
+
+    # En iyi k chunk'ı bul
+    scored_results = []
+    for item in vector_store:
+        score = cosine_similarity(query_embedding, item["embedding"])
+        if score >= request.min_score:
+            scored_results.append({**item, "score": score})
+    top_k = sorted(scored_results, key=lambda x: x["score"], reverse=True)[:request.k]
+
+    # Prompt'ı oluştur
+    excerpts = "\n\n".join(
+        [f"{i+1}. {chunk['text']}" for i, chunk in enumerate(top_k)]
+    )
+    prompt = f"""
+You are a helpful scientific assistant. Answer the following question using ONLY the provided excerpts below. Use citations like [1], [2] as needed.
+
+QUESTION:
+{request.query}
+
+EXCERPTS:
+{excerpts}
+
+ANSWER:
+""".strip()
+
+    # Cevap oluştur
+    answer = generate_answer(prompt)
+
+    # Kaynak chunk'ları yanıtla birlikte döndür
+    sources = [
+        SearchResult(
+            id=item["id"],
+            text=item["text"],
+            score=item["score"],
+            source_doc_id=item["source_doc_id"],
+            section_heading=item["section_heading"],
+            journal=item["journal"],
+            publish_year=item["publish_year"],
+            attributes=item.get("attributes", {})
+        )
+        for item in top_k
+    ]
+
+    return AnswerResponse(answer=answer.strip(), sources=sources)
