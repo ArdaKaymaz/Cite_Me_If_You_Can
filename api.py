@@ -20,6 +20,13 @@ app = FastAPI()
 @app.put("/api/upload")
 def upload_chunks(payload: UploadRequest):
     for chunk in payload.chunks:
+        # 🔁 Liste geldiyse sözlüğe çevir
+        attrs = chunk.attributes
+        if isinstance(attrs, list):
+            attrs = {f"attr_{i}": v for i, v in enumerate(attrs)}
+        elif not isinstance(attrs, dict):
+            attrs = {}
+
         embedding = embed_text(chunk.text)
         vector_store.append({
             "id": str(uuid4()),
@@ -30,13 +37,15 @@ def upload_chunks(payload: UploadRequest):
             "journal": chunk.journal,
             "publish_year": chunk.publish_year,
             "usage_count": 0,
-            "attributes": chunk.attributes
+            "attributes": attrs
         })
+
     return {
         "message": "Chunks uploaded successfully",
         "count": len(payload.chunks),
         "status": "accepted"
     }
+
 
 # Similarity search
 @app.post("/api/similarity_search", response_model=List[SearchResult])

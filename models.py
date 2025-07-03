@@ -1,13 +1,15 @@
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict
 
+from typing import Union
+
 class Chunk(BaseModel):
     text: str
     source_doc_id: str
     section_heading: str
     journal: str
     publish_year: int
-    attributes: Dict[str, str] = Field(default_factory=dict)
+    attributes: Optional[Union[Dict[str, str], List[str]]] = Field(default_factory=dict)
 
 class UploadRequest(BaseModel):
     chunks: List[Chunk]
