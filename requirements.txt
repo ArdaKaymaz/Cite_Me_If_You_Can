@@ -5,4 +5,4 @@ hf_xet==1.1.5
 sentence-transformers>=5.0.0
 adapters>=1.2.0
 torch>=2.1.0
-weaviate-client>=4.15.4
+google-genai

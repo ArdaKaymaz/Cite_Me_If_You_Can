@@ -1,14 +1,22 @@
 from fastapi import FastAPI, HTTPException
 from uuid import uuid4
-from embedding import embed_text
-from models import Chunk, UploadRequest, SimilaritySearchRequest, SearchResult
-from vector_utils import vector_store, cosine_similarity
+from typing import List
 
-from llm import generate_answer
-from models import AnswerRequest, AnswerResponse
+from embedding import embed_text
+from llm import summarize_chunks
+from models import (
+    Chunk,
+    UploadRequest,
+    SimilaritySearchRequest,
+    SearchResult,
+    AnswerRequest,
+    AnswerResponse
+)
+from vector_utils import vector_store, cosine_similarity
 
 app = FastAPI()
 
+# Upload endpoint
 @app.put("/api/upload")
 def upload_chunks(payload: UploadRequest):
     for chunk in payload.chunks:
@@ -30,20 +38,21 @@ def upload_chunks(payload: UploadRequest):
         "status": "accepted"
     }
 
-@app.post("/api/similarity_search", response_model=list[SearchResult])
+# Similarity search
+@app.post("/api/similarity_search", response_model=List[SearchResult])
 def similarity_search(request: SimilaritySearchRequest):
     if not vector_store:
         raise HTTPException(status_code=400, detail="Vector store is empty. Upload chunks first.")
 
     query_embedding = embed_text(request.query)
-    scored_results = []
+    scored_chunks = []
 
     for item in vector_store:
         score = cosine_similarity(query_embedding, item["embedding"])
         if score >= request.min_score:
-            scored_results.append({**item, "score": score})
+            scored_chunks.append({**item, "score": score})
 
-    top_k = sorted(scored_results, key=lambda x: x["score"], reverse=True)[:request.k]
+    top_k = sorted(scored_chunks, key=lambda x: x["score"], reverse=True)[:request.k]
 
     return [
         SearchResult(
@@ -58,6 +67,7 @@ def similarity_search(request: SimilaritySearchRequest):
         ) for chunk in top_k
     ]
 
+# GET chunks by source_doc_id
 @app.get("/api/{journal_id}")
 def get_journal_chunks(journal_id: str):
     matching = [c for c in vector_store if c["source_doc_id"] == journal_id]
@@ -72,56 +82,36 @@ def get_journal_chunks(journal_id: str):
         ]
     }
 
-
-### LLM Integration ###
-
+# LLM-based answer generation
 @app.post("/api/answer", response_model=AnswerResponse)
 def answer_question(request: AnswerRequest):
     if not vector_store:
         raise HTTPException(status_code=400, detail="Vector store is empty. Upload chunks first.")
 
     query_embedding = embed_text(request.query)
+    scored_chunks = []
 
-    # Find the best k chunks
-    scored_results = []
     for item in vector_store:
         score = cosine_similarity(query_embedding, item["embedding"])
         if score >= request.min_score:
-            scored_results.append({**item, "score": score})
-    top_k = sorted(scored_results, key=lambda x: x["score"], reverse=True)[:request.k]
+            scored_chunks.append({**item, "score": score})
 
-    # Generate the prompt
-    excerpts = "\n\n".join(
-        [f"{i+1}. {chunk['text']}" for i, chunk in enumerate(top_k)]
-    )
-    prompt = f"""
-You are a helpful scientific assistant. Answer the following question using ONLY the provided excerpts below. Use citations like [1], [2] as needed.
+    top_k = sorted(scored_chunks, key=lambda x: x["score"], reverse=True)[:request.k]
 
-QUESTION:
-{request.query}
+    summary = summarize_chunks(request.query, [chunk["text"] for chunk in top_k])
 
-EXCERPTS:
-{excerpts}
-
-ANSWER:
-""".strip()
-
-    # Generate answer
-    answer = generate_answer(prompt)
-
-    # Return the best k chunks with answer
     sources = [
         SearchResult(
-            id=item["id"],
-            text=item["text"],
-            score=item["score"],
-            source_doc_id=item["source_doc_id"],
-            section_heading=item["section_heading"],
-            journal=item["journal"],
-            publish_year=item["publish_year"],
-            attributes=item.get("attributes", {})
+            id=chunk["id"],
+            text=chunk["text"],
+            score=chunk["score"],
+            source_doc_id=chunk["source_doc_id"],
+            section_heading=chunk["section_heading"],
+            journal=chunk["journal"],
+            publish_year=chunk["publish_year"],
+            attributes=chunk.get("attributes", {})
         )
-        for item in top_k
+        for chunk in top_k
     ]
 
-    return AnswerResponse(answer=answer.strip(), sources=sources)
+    return AnswerResponse(answer=summary.strip(), sources=sources)
