@@ -10,6 +10,11 @@ st.title("📚 Cite Me If You Can — Semantic Search & Summarizer")
 if "chunks_uploaded" not in st.session_state:
     st.session_state["chunks_uploaded"] = False
 
+# Was the search done?
+if "search_done" not in st.session_state:
+    st.session_state["search_done"] = False
+
+
 # 1️⃣ Upload Chunks
 st.header("1. Upload Chunks (Sample_chunks.json)")
 uploaded_file = st.file_uploader("Upload a JSON file with chunks", type=["json"])
@@ -62,9 +67,40 @@ if st.session_state["chunks_uploaded"]:
                     **Text:**  
                     > {item['text'][:500]}...
                     """)
+                st.session_state["search_done"] = True  # ✅ mark that search was done
             else:
                 st.error(f"❌ Error: {response.status_code} - {response.text}")
         except Exception as e:
             st.error(f"❌ Request failed: {e}")
 else:
     st.info("ℹ️ Please upload a JSON chunk file before running similarity search.")
+
+
+# 3️⃣ Get Journal Chunks
+if st.session_state["search_done"]:
+    st.header("3. Get Chunks by Journal ID")
+    
+    with st.form("get_journal_form"):
+        journal_id = st.text_input("Enter source_doc_id (e.g., extension_brief_mucuna.pdf)")
+        get_chunks = st.form_submit_button("📄 Get Chunks")
+    
+    if get_chunks:
+        if journal_id.strip() == "":
+            st.warning("⚠️ Please enter a valid journal ID.")
+        else:
+            try:
+                url = f"http://localhost:8000/api/{journal_id}"
+                response = requests.get(url)
+                if response.status_code == 200:
+                    data = response.json()
+                    st.success(f"✅ Found {data['chunk_count']} chunks for '{journal_id}'.")
+                    for i, chunk in enumerate(data["chunks"], 1):
+                        st.markdown(f"""
+                        **{i}. Section:** *{chunk['section_heading']}*  
+                        **Text:**  
+                        > {chunk['text'][:500]}...
+                        """)
+                else:
+                    st.error(f"❌ {response.status_code}: {response.text}")
+            except Exception as e:
+                st.error(f"❌ Request failed: {e}")
