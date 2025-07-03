@@ -100,6 +100,11 @@ def answer_question(request: AnswerRequest):
 
     summary = summarize_chunks(request.query, [chunk["text"] for chunk in top_k])
 
+    # 🧾 Generate answer in markdown format
+    markdown_answer = f"### 🧠 Answer\n{summary}\n\n### 📚 Sources\n"
+    for i, chunk in enumerate(top_k, start=1):
+        markdown_answer += f"- [{i}] **{chunk['section_heading']}**, *{chunk['journal']}* ({chunk['publish_year']})\n"
+
     sources = [
         SearchResult(
             id=chunk["id"],
