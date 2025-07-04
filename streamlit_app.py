@@ -113,83 +113,98 @@ with tabs[0]:
 with tabs[1]:
     st.header("🤖 LLM Answer")
 
-    # ⛔ Refresh previous data (LLM tab works isolated)
+    # ⛔ Refresh other session data (LLM tab is isolated)
     st.session_state["chunks_uploaded"] = False
     st.session_state["search_done"] = False
     st.session_state["vector_data_llm"] = None
     st.session_state["llm_ready"] = False
 
-    # 1. File Upload
-    uploaded = st.file_uploader("Upload a JSON file with chunks (LLM mode)", type=["json"], key="llm_uploader")
+    # 0. Gemini API Key Input (LLM-specific)
+    st.subheader("🔐 Gemini API Key")
+    user_api_key = st.text_input("Enter your Gemini API Key", type="password", key="gemini_key")
 
-    if uploaded:
+    if user_api_key:
         try:
-            content = uploaded.read().decode("utf-8")
-            data = json.loads(content)
-
-            with st.spinner("Uploading chunks to LLM memory..."):
-                response = requests.put("http://localhost:8000/api/upload", json={"chunks": data})
-                if response.status_code == 200:
-                    st.success("✅ Chunks uploaded successfully.")
-                    st.session_state["llm_ready"] = True
-                else:
-                    st.error(f"❌ Upload failed: {response.status_code} - {response.text}")
+            import google.generativeai as genai
+            genai.configure(api_key=user_api_key)
+            st.session_state["gemini_ready"] = True
+            st.success("✅ Gemini API key is set.")
         except Exception as e:
-            st.error(f"❌ Invalid JSON: {e}")
-            st.session_state["llm_ready"] = False
-
-    # 2. If file was uploaded, query panel is active
-    if st.session_state.get("llm_ready"):
-        st.markdown("### 🔍 Ask your question")
-
-        with st.form("llm_query_form"):
-            query = st.text_input("Enter your question", value="What are the benefits of growing mucuna?")
-            k = st.number_input("Top K Chunks", min_value=1, max_value=20, value=5, step=1)
-            min_score = st.slider("Minimum Similarity Score", 0.0, 1.0, 0.25, step=0.01)
-            submitted = st.form_submit_button("🧠 Generate LLM Answer")
-
-        if submitted:
-            try:
-                payload = {
-                    "query": query,
-                    "k": k,
-                    "min_score": min_score
-                }
-                response = requests.post("http://localhost:8000/api/answer", json=payload)
-                if response.status_code == 200:
-                    result = response.json()
-                    st.markdown("### ✅ Answer")
-                    st.markdown(result["answer"])
-
-                    # 📚 Source Chunks
-                    st.markdown("### 📚 Source Chunks")
-                    for i, chunk in enumerate(result["sources"], 1):
-                        st.markdown(f"""
-                        **{i}. Section:** *{chunk['section_heading']}*  
-                        **Score:** `{chunk['score']:.3f}`  
-                        **Text:**  
-                        > {chunk['text'][:500]}...
-                        """)
-
-                    # 🧾 References (auto-generated in all styles)
-                    st.markdown("### 🧾 Auto-generated References")
-
-                    apa_refs = generate_references(result["sources"], style="APA")
-                    mla_refs = generate_references(result["sources"], style="MLA")
-                    chicago_refs = generate_references(result["sources"], style="Chicago")
-
-                    st.markdown("**📘 APA Style**")
-                    st.code("\n".join(apa_refs), language="markdown")
-
-                    st.markdown("**📗 MLA Style**")
-                    st.code("\n".join(mla_refs), language="markdown")
-
-                    st.markdown("**📙 Chicago Style**")
-                    st.code("\n".join(chicago_refs), language="markdown")
-
-                else:
-                    st.error(f"❌ API error: {response.status_code} - {response.text}")
-            except Exception as e:
-                st.error(f"❌ Request failed: {e}")
+            st.session_state["gemini_ready"] = False
+            st.error(f"❌ Failed to configure Gemini: {e}")
     else:
-        st.info("ℹ️ Please upload a JSON file to enable LLM query interface.")
+        st.session_state["gemini_ready"] = False
+        st.info("ℹ️ Please enter a valid API key to use LLM summarization.")
+
+    # 1. Upload JSON if API is ready
+    if st.session_state.get("gemini_ready"):
+        uploaded = st.file_uploader("Upload a JSON file with chunks (LLM mode)", type=["json"], key="llm_uploader")
+
+        if uploaded:
+            try:
+                content = uploaded.read().decode("utf-8")
+                data = json.loads(content)
+
+                with st.spinner("Uploading chunks to LLM memory..."):
+                    response = requests.put("http://localhost:8000/api/upload", json={"chunks": data})
+                    if response.status_code == 200:
+                        st.success("✅ Chunks uploaded successfully.")
+                        st.session_state["llm_ready"] = True
+                    else:
+                        st.error(f"❌ Upload failed: {response.status_code} - {response.text}")
+            except Exception as e:
+                st.error(f"❌ Invalid JSON: {e}")
+                st.session_state["llm_ready"] = False
+
+        # 2. LLM Form appears only after upload
+        if st.session_state.get("llm_ready"):
+            st.markdown("### 🔍 Ask your question")
+
+            with st.form("llm_query_form"):
+                query = st.text_input("Enter your question", value="What are the benefits of growing mucuna?")
+                k = st.number_input("Top K Chunks", min_value=1, max_value=20, value=5, step=1)
+                min_score = st.slider("Minimum Similarity Score", 0.0, 1.0, 0.25, step=0.01)
+                submitted = st.form_submit_button("🧠 Generate LLM Answer")
+
+            if submitted:
+                try:
+                    payload = {
+                        "query": query,
+                        "k": k,
+                        "min_score": min_score
+                    }
+                    response = requests.post("http://localhost:8000/api/answer", json=payload)
+                    if response.status_code == 200:
+                        result = response.json()
+                        st.markdown("### ✅ Answer")
+                        st.markdown(result["answer"])
+
+                        # 📚 Source Chunks
+                        st.markdown("### 📚 Source Chunks")
+                        for i, chunk in enumerate(result["sources"], 1):
+                            st.markdown(f"""
+                            **{i}. Section:** *{chunk['section_heading']}*  
+                            **Score:** `{chunk['score']:.3f}`  
+                            **Text:**  
+                            > {chunk['text'][:500]}...
+                            """)
+
+                        # 🧾 References
+                        st.markdown("### 🧾 Auto-generated References")
+                        apa = generate_references(result["sources"], style="APA")
+                        mla = generate_references(result["sources"], style="MLA")
+                        chicago = generate_references(result["sources"], style="Chicago")
+
+                        st.markdown("**📘 APA Style**")
+                        st.code("\n".join(apa), language="markdown")
+                        st.markdown("**📗 MLA Style**")
+                        st.code("\n".join(mla), language="markdown")
+                        st.markdown("**📙 Chicago Style**")
+                        st.code("\n".join(chicago), language="markdown")
+
+                    else:
+                        st.error(f"❌ API error: {response.status_code} - {response.text}")
+                except Exception as e:
+                    st.error(f"❌ Request failed: {e}")
+    else:
+        st.warning("⚠️ LLM functionality requires a valid Gemini API Key.")
