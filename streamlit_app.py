@@ -1,6 +1,7 @@
 import streamlit as st
 import requests
 import json
+from reference_utils import generate_references
 
 # 🧠 Session state flags
 if "chunks_uploaded" not in st.session_state:
@@ -118,7 +119,7 @@ with tabs[1]:
     st.session_state["vector_data_llm"] = None
     st.session_state["llm_ready"] = False
 
-    # 1. Dosya yükleme
+    # 1. File Upload
     uploaded = st.file_uploader("Upload a JSON file with chunks (LLM mode)", type=["json"], key="llm_uploader")
 
     if uploaded:
@@ -126,7 +127,6 @@ with tabs[1]:
             content = uploaded.read().decode("utf-8")
             data = json.loads(content)
 
-            # API'ye gönder
             with st.spinner("Uploading chunks to LLM memory..."):
                 response = requests.put("http://localhost:8000/api/upload", json={"chunks": data})
                 if response.status_code == 200:
@@ -161,6 +161,7 @@ with tabs[1]:
                     st.markdown("### ✅ Answer")
                     st.markdown(result["answer"])
 
+                    # 📚 Source Chunks
                     st.markdown("### 📚 Source Chunks")
                     for i, chunk in enumerate(result["sources"], 1):
                         st.markdown(f"""
@@ -169,6 +170,23 @@ with tabs[1]:
                         **Text:**  
                         > {chunk['text'][:500]}...
                         """)
+
+                    # 🧾 References (auto-generated in all styles)
+                    st.markdown("### 🧾 Auto-generated References")
+
+                    apa_refs = generate_references(result["sources"], style="APA")
+                    mla_refs = generate_references(result["sources"], style="MLA")
+                    chicago_refs = generate_references(result["sources"], style="Chicago")
+
+                    st.markdown("**📘 APA Style**")
+                    st.code("\n".join(apa_refs), language="markdown")
+
+                    st.markdown("**📗 MLA Style**")
+                    st.code("\n".join(mla_refs), language="markdown")
+
+                    st.markdown("**📙 Chicago Style**")
+                    st.code("\n".join(chicago_refs), language="markdown")
+
                 else:
                     st.error(f"❌ API error: {response.status_code} - {response.text}")
             except Exception as e:
