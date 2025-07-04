@@ -6,4 +6,7 @@ sentence-transformers>=5.0.0
 adapters>=1.2.0
 torch>=2.1.0
 google-genai
+python-dotenv
+pydantic
+numpy
 streamlit
